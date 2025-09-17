@@ -1,55 +1,57 @@
-import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class Client {
 
     public static void main(String args[]) throws Exception
     {
-        // create a socket to connect to the server running on localhost at port number 9090
-        File file = null;
-        JFileChooser fc = new JFileChooser();
-        FileNameExtensionFilter filter = new FileNameExtensionFilter(
-                "JPG & GIF Images", "jpg", "gif","jpeg","png");
-        fc.setFileFilter(filter);
-        int returnVal = fc.showOpenDialog(null);
+         try {
+            Socket sockett = new Socket("localhost", 9099);
+        
 
-        if(returnVal == JFileChooser.APPROVE_OPTION){
-            file=fc.getSelectedFile();
-        }
-        try {
-            Socket socket = new Socket("localhost", 9099);
+        // create a socket to connect to the server running on localhost at port number 9090
+            File file = null;
+            JFileChooser fc = new JFileChooser();
+            FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                    "JPG & GIF Images", "jpg", "gif","jpeg","png");
+            fc.setFileFilter(filter);
+            int returnVal = fc.showOpenDialog(null);
+
+            if(returnVal == JFileChooser.APPROVE_OPTION){
+                file=fc.getSelectedFile();
+            }
+        
+
+            // Setup output stream to send data to the server
+            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
+            DataInputStream in =new DataInputStream(sockett.getInputStream()) ;
+
+            // Setup input stream to receive data from the server
+
+            sendFile(file,out);
+            int longitud=in.readInt();
+            // Send message to the serve
+            File theDir = new File("./imgs2/");
+            if (!theDir.exists()){
+                theDir.mkdirs();
+            }
+            for (int i = 0; i < longitud; i++) {
+                receiveFile(in);
+            }
+            // Receive response from the server
+            String response = in.readLine();
+            System.out.println("Server says: " + response);
+
+            // Close the socket
+            sockett.close();
+            gui();
         } catch (ConnectException e) {
             throw new RuntimeException(e);
         }
-
-
-        // Setup output stream to send data to the server
-        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-        DataInputStream in =new DataInputStream(socket.getInputStream()) ;
-
-        // Setup input stream to receive data from the server
-
-        sendFile(file,out);
-        int longitud=in.readInt();
-        // Send message to the serve
-        File theDir = new File("./imgs2/");
-        if (!theDir.exists()){
-            theDir.mkdirs();
-        }
-        for (int i = 0; i < longitud; i++) {
-            receiveFile(in);
-        }
-        // Receive response from the server
-        String response = in.readLine();
-        System.out.println("Server says: " + response);
-
-        // Close the socket
-        //socket.close();
-        gui();
     }
     private static void sendFile(File file, DataOutputStream out)
             throws Exception

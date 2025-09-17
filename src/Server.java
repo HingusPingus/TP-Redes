@@ -1,8 +1,5 @@
-import javax.swing.*;
-import java.awt.*;
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
 
 public class Server {
     public static void main(String args[]) throws Exception
@@ -34,7 +31,9 @@ public class Server {
             in.close();
             out.close();
             // Close the client socket
-            //clientSocket.close();
+            clientSocket.close();
+                System.out.println("sali");
+
             if(aux){
                 serverSocket.close();
             }
