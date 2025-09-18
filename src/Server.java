@@ -4,7 +4,7 @@ import java.net.*;
 public class Server {
     public static void main(String args[]) throws Exception
     {
-        ServerSocket serverSocket = new ServerSocket(9099);
+        ServerSocket serverSocket = new ServerSocket(9999);
         System.out.println("Server is running and waiting for client connection...");
         while(true) {
             boolean aux=false;
@@ -15,8 +15,10 @@ public class Server {
                     clientSocket.getInputStream());
             DataOutputStream out = new DataOutputStream(
                     clientSocket.getOutputStream());
-
-            receiveFile(in);
+            boolean recibir=in.readBoolean();
+            if(recibir) {
+                receiveFile(in);
+            }
 
             File folder = new File("./imgs/");
             int longitud = folder.listFiles().length;

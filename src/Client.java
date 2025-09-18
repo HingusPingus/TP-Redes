@@ -9,8 +9,34 @@ public class Client {
 
     public static void main(String args[]) throws Exception
     {
+        decision(true);
+        GUI.mostrarImgs();
+
+    }
+    public static void decision(boolean mandar) {
+        try {
+            Socket sockett = new Socket("localhost", 9999);
 
 
+            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
+            DataInputStream in = new DataInputStream(sockett.getInputStream());
+            if (mandar) {
+                out.writeBoolean(true);
+                mandarNuevo(sockett, out, in);
+            } else {
+                out.writeBoolean(false);
+            }
+            actualizarLista(sockett, out, in);
+
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private static void mandarNuevo(Socket sockett, DataOutputStream out, DataInputStream in) throws Exception {
         File file = null;
         JFileChooser fc = new JFileChooser();
         FileNameExtensionFilter filter = new FileNameExtensionFilter(
@@ -21,15 +47,12 @@ public class Client {
         if(returnVal == JFileChooser.APPROVE_OPTION){
             file=fc.getSelectedFile();
         }
-        try {
-            Socket sockett = new Socket("localhost", 9099);
-
-
-            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
-            DataInputStream in =new DataInputStream(sockett.getInputStream()) ;
-
-
             sendFile(file,out);
+
+    }
+    private static void actualizarLista(Socket sockett, DataOutputStream out, DataInputStream in){
+        try {
+
             int longitud=in.readInt();
             File theDir = new File("./imgs2/");
             if (!theDir.exists()){
@@ -38,12 +61,10 @@ public class Client {
             for (int i = 0; i < longitud; i++) {
                 receiveFile(in);
             }
-            String response = in.readLine();
             in.close();
             out.close();
             sockett.close();
-            gui();
-        } catch (ConnectException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -88,41 +109,5 @@ public class Client {
         System.out.println("File is Received");
         fileOutputStream.close();
     }
-    public static void gui(){
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        double width = screenSize.getWidth();
-        int offseth=0;
-        int offsetv=0;
-        int maxoffset=0;
-        JFrame frame = new JFrame("Whiteboard");
-        frame.setSize(1000,1000);
-        File folder= new File("./imgs2/");
-        ArrayList<JLabel> labels=new ArrayList<>();
-        int i=0;
-        for (final File fileEntry : folder.listFiles()) {
-            if((offseth+200)>=width){
-                maxoffset=offseth;
-                offseth=0;
-                offsetv+=200;
-            }
-            JLabel label = new JLabel();
-            labels.add(label);
-            labels.get(i).setIcon(new ImageIcon(new ImageIcon(fileEntry.getPath()).getImage().getScaledInstance(200,200, Image.SCALE_AREA_AVERAGING)));
-            labels.get(i).setBorder(BorderFactory.createEmptyBorder(offsetv,offseth,0,0));
-            frame.add(labels.get(i));
-            frame.pack();
-            offseth=labels.get(i).getWidth();
-            i++;
-            if(i==folder.listFiles().length){
-                JLabel labelf = new JLabel();
-                labels.add(labelf);
-                labels.get(i).setBorder(BorderFactory.createEmptyBorder(offsetv+200,maxoffset,0,0));
-                frame.add(labels.get(i));
-                frame.pack();
-            }
-        }
 
-        frame.setVisible(true);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    }
 }
