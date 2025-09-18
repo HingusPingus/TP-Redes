@@ -14,7 +14,7 @@ public class Client {
         File file = null;
         JFileChooser fc = new JFileChooser();
         FileNameExtensionFilter filter = new FileNameExtensionFilter(
-                "JPG & GIF Images", "jpg", "gif","jpeg","png");
+                "Seleccione una imagen", "jpg", "gif","jpeg","png");
         fc.setFileFilter(filter);
         int returnVal = fc.showOpenDialog(null);
 
@@ -25,15 +25,12 @@ public class Client {
             Socket sockett = new Socket("localhost", 9099);
 
 
-            // Setup output stream to send data to the server
             DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
             DataInputStream in =new DataInputStream(sockett.getInputStream()) ;
 
-            // Setup input stream to receive data from the server
 
             sendFile(file,out);
             int longitud=in.readInt();
-            // Send message to the serve
             File theDir = new File("./imgs2/");
             if (!theDir.exists()){
                 theDir.mkdirs();
@@ -41,11 +38,9 @@ public class Client {
             for (int i = 0; i < longitud; i++) {
                 receiveFile(in);
             }
-            // Receive response from the server
             String response = in.readLine();
-            System.out.println("Server says: " + response);
-
-            // Close the socket
+            in.close();
+            out.close();
             sockett.close();
             gui();
         } catch (ConnectException e) {
@@ -60,17 +55,13 @@ public class Client {
         FileInputStream fileInputStream
                 = new FileInputStream(file);
         out.writeUTF(file.getName());
-        // Here we send the File to Server
         out.writeLong(file.length());
-        // Here we  break file into chunks
         byte[] buffer = new byte[4 * 1024];
         while ((bytes = fileInputStream.read(buffer))
                 != -1) {
-            // Send the file to Server Socket
             out.write(buffer, 0, bytes);
             out.flush();
         }
-        // close the file here
         fileInputStream.close();
     }
     private static void receiveFile(DataInputStream in)
@@ -84,18 +75,16 @@ public class Client {
                 = new FileOutputStream(fileName);
 
         long size
-                = in.readLong(); // read file size
+                = in.readLong();
         byte[] buffer = new byte[4 * 1024];
         while (size > 0
                 && (bytes = in.read(
                 buffer, 0,
                 (int)Math.min(buffer.length, size)))
                 != -1) {
-            // Here we write the file using write method
             fileOutputStream.write(buffer, 0, bytes);
-            size -= bytes; // read upto file size
+            size -= bytes;
         }
-        // Here we received file
         System.out.println("File is Received");
         fileOutputStream.close();
     }
