@@ -9,22 +9,21 @@ public class Client {
 
     public static void main(String args[]) throws Exception
     {
-         try {
+
+
+        File file = null;
+        JFileChooser fc = new JFileChooser();
+        FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                "JPG & GIF Images", "jpg", "gif","jpeg","png");
+        fc.setFileFilter(filter);
+        int returnVal = fc.showOpenDialog(null);
+
+        if(returnVal == JFileChooser.APPROVE_OPTION){
+            file=fc.getSelectedFile();
+        }
+        try {
             Socket sockett = new Socket("localhost", 9099);
-        
 
-        // create a socket to connect to the server running on localhost at port number 9090
-            File file = null;
-            JFileChooser fc = new JFileChooser();
-            FileNameExtensionFilter filter = new FileNameExtensionFilter(
-                    "JPG & GIF Images", "jpg", "gif","jpeg","png");
-            fc.setFileFilter(filter);
-            int returnVal = fc.showOpenDialog(null);
-
-            if(returnVal == JFileChooser.APPROVE_OPTION){
-                file=fc.getSelectedFile();
-            }
-        
 
             // Setup output stream to send data to the server
             DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
