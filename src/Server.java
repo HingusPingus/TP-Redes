@@ -3,11 +3,13 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.util.Arrays;
 
 public class Server {
 
@@ -20,6 +22,7 @@ public class Server {
         ServerSocket serverSocket = new ServerSocket(9999);
         System.out.println("Server is running and waiting for client connection...");
         KeyPair claves=Clave.generateRSAKkeyPair();
+        PublicKey publicKeyCli=null;
         while(true) {
             boolean aux=false;
             Socket clientSocket = serverSocket.accept();
@@ -31,17 +34,15 @@ public class Server {
                     clientSocket.getOutputStream());
             boolean recibirclave=in.readBoolean();
             if(recibirclave) {
-                Cipher cifrado=Cipher.getInstance("RSA");
-                ObjectInputStream inobj = new ObjectInputStream(clientSocket.getInputStream());
                 ObjectOutputStream outobj=new ObjectOutputStream(clientSocket.getOutputStream());
-                PublicKey publicKeyCli=(PublicKey) inobj.readObject();
+                ObjectInputStream inobj = new ObjectInputStream(clientSocket.getInputStream());
+
+                publicKeyCli=(PublicKey) inobj.readObject();
                 outobj.writeObject(claves.getPublic());
-                cifrado.init(Cipher.ENCRYPT_MODE,publicKeyCli);
-                byte[] encryptedMessage=cifrado.doFinal(claveSimetrica.getEncoded());
+                byte[] encryptedMessage=Criptografia.encriptar("RSA", publicKeyCli, claveSimetrica.getEncoded());
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 byte[] encodedhash = digest.digest(claveSimetrica.getEncoded());
-                cifrado.init(Cipher.ENCRYPT_MODE,claves.getPrivate());
-                byte[] sign=cifrado.doFinal(encodedhash);
+                byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
 
                 out.write(encryptedMessage);
                 out.write(sign);
@@ -50,14 +51,20 @@ public class Server {
 
             boolean recibir=in.readBoolean();
             if(recibir) {
-                receiveFile(in);
+                receiveFile(in,claveSimetrica,publicKeyCli);
             }
 
             File folder = new File("./imgs/");
             int longitud = folder.listFiles().length;
-            out.writeInt(longitud);
+            byte[] result =  ByteBuffer.allocate(4).putInt(longitud).array();
+            byte[] encryptedMessage=Criptografia.encriptar("RSA", claveSimetrica, result);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] encodedhash = digest.digest(result);
+            byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
+            out.write(encryptedMessage);
+            out.write(sign);
             for (File file : folder.listFiles()) {
-                sendFile(file, out);
+                sendFile(file, out,claveSimetrica,claves);
             }
             in.close();
             out.close();
@@ -72,42 +79,47 @@ public class Server {
 
 
     }
-    private static void sendFile(File file, DataOutputStream out)
+    private static void sendFile(File file, DataOutputStream out, SecretKey clave, KeyPair claves)
             throws Exception
     {
         int bytes = 0;
 
-        FileInputStream fileInputStream
-                = new FileInputStream(file);
+        FileInputStream fileInputStream = new FileInputStream(file);
         out.writeUTF(file.getName());
         out.writeLong(file.length());
         byte[] buffer = new byte[4 * 1024];
-        while ((bytes = fileInputStream.read(buffer))
-                != -1) {
-            out.write(buffer, 0, bytes);
+        while ((bytes = fileInputStream.read(buffer)) != -1) {
+            byte[] bufferEncriptado=Criptografia.encriptar("AES", clave, buffer);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] encodedhash = digest.digest(buffer);
+            byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
+            out.write(bufferEncriptado, 0, bytes);
+            out.write(sign);
             out.flush();
         }
         fileInputStream.close();
     }
-    private static void receiveFile(DataInputStream in)
+    private static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKeyCli)
             throws Exception
     {
+
         int bytes = 0;
         String fileNamex=in.readUTF();
-        String fileName="./imgs/"+fileNamex;
+        String fileName="./imgs2/"+fileNamex;
         FileOutputStream fileOutputStream
                 = new FileOutputStream(fileName);
 
-        long size
-                = in.readLong();
+        long size = in.readLong();
         byte[] buffer = new byte[4 * 1024];
-        while (size > 0
-                && (bytes = in.read(
-                buffer, 0,
-                (int)Math.min(buffer.length, size)))
-                != -1) {
-            fileOutputStream.write(buffer, 0, bytes);
-            size -= bytes;
+        while (size > 0 && (bytes = in.read(buffer, 0, (int)Math.min(buffer.length, size))) != -1) {
+            byte[] bufferDesencriptado=Criptografia.desencriptar("AES", clave, buffer);
+            byte[] sign=Criptografia.desencriptar("RSA",publicKeyCli,in.readAllBytes());
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] encodedhash = digest.digest(bufferDesencriptado);
+            if(Arrays.equals(sign, encodedhash)) {
+                fileOutputStream.write(bufferDesencriptado, 0, bytes);
+                size -= bytes;
+            }
         }
         System.out.println("File is Received");
         fileOutputStream.close();

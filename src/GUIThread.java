@@ -20,7 +20,7 @@ public class GUIThread extends Thread{
         }
         while(frame.isEnabled()){
             int len=folder.listFiles().length;
-            Client.decision(false);
+            //Client.decision(false);
             int lennow= folder.listFiles().length;
             if(len!=lennow) {
                 len=lennow;

@@ -40,7 +40,7 @@ public class GUI {
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Client.decision(true,);
+                //Client.decision(true,);
                 frame.dispose();
                 frame.removeAll();
                 mostrarImgs();
