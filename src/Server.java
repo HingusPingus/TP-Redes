@@ -1,11 +1,25 @@
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.MessageDigest;
+import java.security.PublicKey;
+import java.security.SecureRandom;
 
 public class Server {
+
     public static void main(String args[]) throws Exception
     {
+        KeyGenerator keygenerator=KeyGenerator.getInstance("AES");
+        SecureRandom secureRandom = new SecureRandom();
+        keygenerator.init(256,secureRandom);
+        SecretKey claveSimetrica = keygenerator.generateKey();
         ServerSocket serverSocket = new ServerSocket(9999);
         System.out.println("Server is running and waiting for client connection...");
+        KeyPair claves=Clave.generateRSAKkeyPair();
         while(true) {
             boolean aux=false;
             Socket clientSocket = serverSocket.accept();
@@ -15,6 +29,25 @@ public class Server {
                     clientSocket.getInputStream());
             DataOutputStream out = new DataOutputStream(
                     clientSocket.getOutputStream());
+            boolean recibirclave=in.readBoolean();
+            if(recibirclave) {
+                Cipher cifrado=Cipher.getInstance("RSA");
+                ObjectInputStream inobj = new ObjectInputStream(clientSocket.getInputStream());
+                ObjectOutputStream outobj=new ObjectOutputStream(clientSocket.getOutputStream());
+                PublicKey publicKeyCli=(PublicKey) inobj.readObject();
+                outobj.writeObject(claves.getPublic());
+                cifrado.init(Cipher.ENCRYPT_MODE,publicKeyCli);
+                byte[] encryptedMessage=cifrado.doFinal(claveSimetrica.getEncoded());
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] encodedhash = digest.digest(claveSimetrica.getEncoded());
+                cifrado.init(Cipher.ENCRYPT_MODE,claves.getPrivate());
+                byte[] sign=cifrado.doFinal(encodedhash);
+
+                out.write(encryptedMessage);
+                out.write(sign);
+
+            }
+
             boolean recibir=in.readBoolean();
             if(recibir) {
                 receiveFile(in);
