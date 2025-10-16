@@ -1,12 +1,16 @@
 import java.io.*;
 import java.net.*;
-import java.security.KeyPair;
-import java.security.MessageDigest;
-import java.security.PublicKey;
+import java.nio.file.Files;
+import java.nio.file.SecureDirectoryStream;
+import java.security.*;
 import java.util.Arrays;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
 
 public class Client {
     public static void main(String args[]) throws Exception
@@ -95,7 +99,13 @@ public class Client {
 
             if (Arrays.equals(sign, encodedhash)) {
                 int longitud = (int) deserialize(longitudb);
+                
                 File theDir = new File("./imgs2/");
+                String[] entries = theDir.list();
+                for (String s : entries) {
+                    File currentFile = new File(theDir.getPath(), s);
+                    currentFile.delete();
+                }
                 if (!theDir.exists()) {
                     theDir.mkdirs();
                 }
@@ -114,36 +124,9 @@ public class Client {
     }
     private static void sendFile(File file, DataOutputStream out, SecretKey clave, KeyPair claves)
             throws Exception {
-        FileInputStream fileInputStream = new FileInputStream(file);
-        out.writeUTF(file.getName());
-        out.writeLong(file.length());
 
-        byte[] buffer = new byte[16 * 1024]; // Use multiple of 16
-        int bytes;
-
-        System.out.println("Sending file: " + file.getName());
-
-        while ((bytes = fileInputStream.read(buffer)) != -1) {
-            // Encrypt the actual bytes read
-            byte[] dataToEncrypt = Arrays.copyOf(buffer, bytes);
-            byte[] bufferEncriptado = Criptografia.encriptar("AES", clave, dataToEncrypt);
-
-            // Create signature for ORIGINAL data
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedhash = digest.digest(dataToEncrypt);
-            byte[] sign = Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
-
-            // Send encrypted data length + data
-            out.writeInt(bufferEncriptado.length);
-            out.write(bufferEncriptado);
-
-            // Send signature length + signature
-            out.writeInt(sign.length);
-            out.write(sign);
-            out.flush();
-        }
-        fileInputStream.close();
-        System.out.println("File sent: " + file.getName());
+        sendSpecs(out,file);
+        sendBuffers(out, file, clave, claves);
     }
     private static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKeyServ)
             throws Exception {
@@ -195,5 +178,45 @@ public class Client {
         ObjectOutputStream os = new ObjectOutputStream(out);
         os.writeObject(obj);
         return out.toByteArray();
+    }
+
+    public static MensajeFirma encriptarMensaje(byte[]dataToEncrypt,SecretKey clave, KeyPair claves)
+            throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException,
+            BadPaddingException, InvalidKeyException {
+        byte[] bufferEncriptado = Criptografia.encriptar("AES", clave, dataToEncrypt);
+        byte[] sign = firmar(bufferEncriptado,claves.getPrivate());
+        return new MensajeFirma(bufferEncriptado,sign);
+    }
+
+    public static byte[] hashear(byte[] data) throws NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        return digest.digest(data);
+    }
+
+    public static byte[] firmar(byte[] data,PrivateKey clavePrivada) throws NoSuchAlgorithmException,
+            NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+        return Criptografia.encriptar("RSA", clavePrivada, hashear(data));
+    }
+    public static void sendSpecs(DataOutputStream out,File file) throws IOException {
+        out.writeUTF(file.getName());
+        out.writeLong(file.length());
+        out.flush();
+    }
+    public static void sendBuffers(DataOutputStream out,File file,SecretKey clave,KeyPair claves)
+            throws IOException, NoSuchPaddingException, IllegalBlockSizeException,
+            NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
+        byte[] buffer = new byte[16 * 1024];
+        int bytes;
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ObjectOutputStream objout =new ObjectOutputStream(out);
+        System.out.println("Sending file: " + file.getName());
+        while ((bytes = fileInputStream.read(buffer)) != -1) {
+            byte[] dataToEncrypt = Arrays.copyOf(buffer, bytes);
+            MensajeFirma mensaje=encriptarMensaje(dataToEncrypt,clave,claves);
+            objout.writeObject(mensaje);
+            objout.flush();
+        }
+        fileInputStream.close();
+        System.out.println("File sent: " + file.getName());
     }
 }
