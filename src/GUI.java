@@ -1,28 +1,27 @@
+import javax.crypto.SecretKey;
 import javax.swing.*;
-import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.security.KeyPair;
+import java.security.PublicKey;
 import java.util.ArrayList;
 
 public class GUI {
-    public static void main(String[] args) {
-        mostrarImgs();
-    }
-    public static void mostrarImgs(){
+    public static void mostrarImgs(SecretKey clave, PublicKey publicKeyServ, KeyPair claves){
 
         JFrame frame = new JFrame("Whiteboard");
         frame.setSize(1000,1000);
         File folder= new File("./imgs2/");
         long cantImgs=folder.length();
-        actualizarImgs(folder,frame);
-        GUIThread hilo=new GUIThread(frame,folder);
+        actualizarImgs(folder,frame,clave,publicKeyServ,claves);
+        GUIThread hilo=new GUIThread(frame,folder,clave,publicKeyServ,claves);
         hilo.start();
 
 
     }
-    public static void actualizarImgs(File folder, JFrame frame){
+    public static void actualizarImgs(File folder, JFrame frame, SecretKey clave, PublicKey publicKeyServ, KeyPair claves){
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         double width = screenSize.getWidth();
 
@@ -37,15 +36,10 @@ public class GUI {
         button.setFocusable(false);
         button.setBorder(BorderFactory.createEmptyBorder(offsetv,offseth,0,0));
 
-        button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                //Client.decision(true,);
-                frame.dispose();
-                frame.removeAll();
-                mostrarImgs();
-            }
-        });
+        button.addActionListener(e -> {
+            Client.decision(true,clave,publicKeyServ,claves);
+            frame.dispose();
+            frame.removeAll();});
         frame.add(button);
         offseth+=200;
         for (final File fileEntry : folder.listFiles()) {
@@ -81,4 +75,5 @@ public class GUI {
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
+
 }

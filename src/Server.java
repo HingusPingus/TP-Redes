@@ -43,12 +43,15 @@ public class Server {
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 byte[] encodedhash = digest.digest(claveSimetrica.getEncoded());
                 byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
+                outobj.flush();
 
+                out.writeInt(encryptedMessage.length);
                 out.write(encryptedMessage);
+                out.writeInt(sign.length);
                 out.write(sign);
+                out.flush();
 
             }
-
             boolean recibir=in.readBoolean();
             if(recibir) {
                 receiveFile(in,claveSimetrica,publicKeyCli);
@@ -56,13 +59,16 @@ public class Server {
 
             File folder = new File("./imgs/");
             int longitud = folder.listFiles().length;
-            byte[] result =  ByteBuffer.allocate(4).putInt(longitud).array();
-            byte[] encryptedMessage=Criptografia.encriptar("RSA", claveSimetrica, result);
+            byte[] result =  serialize(longitud);
+            byte[] encryptedMessage=Criptografia.encriptar("AES", claveSimetrica, result);
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] encodedhash = digest.digest(result);
             byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
+            out.writeInt(encryptedMessage.length);
             out.write(encryptedMessage);
+            out.writeInt(sign.length);
             out.write(sign);
+            out.flush();
             for (File file : folder.listFiles()) {
                 sendFile(file, out,claveSimetrica,claves);
             }
@@ -80,49 +86,83 @@ public class Server {
 
     }
     private static void sendFile(File file, DataOutputStream out, SecretKey clave, KeyPair claves)
-            throws Exception
-    {
-        int bytes = 0;
-
+            throws Exception {
         FileInputStream fileInputStream = new FileInputStream(file);
         out.writeUTF(file.getName());
         out.writeLong(file.length());
-        byte[] buffer = new byte[4 * 1024];
+
+        byte[] buffer = new byte[16 * 1024]; // Use multiple of 16 for better AES performance
+        int bytes;
+
+        System.out.println("Sending file: " + file.getName());
+
         while ((bytes = fileInputStream.read(buffer)) != -1) {
-            byte[] bufferEncriptado=Criptografia.encriptar("AES", clave, buffer);
+            // Encrypt the actual bytes read
+            byte[] dataToEncrypt = Arrays.copyOf(buffer, bytes);
+            byte[] bufferEncriptado = Criptografia.encriptar("AES", clave, dataToEncrypt);
+
+            // Create signature for ORIGINAL data (not encrypted)
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedhash = digest.digest(buffer);
-            byte[] sign=Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
-            out.write(bufferEncriptado, 0, bytes);
+            byte[] encodedhash = digest.digest(dataToEncrypt);
+            byte[] sign = Criptografia.encriptar("RSA", claves.getPrivate(), encodedhash);
+
+            // Send encrypted data length + data
+            out.writeInt(bufferEncriptado.length);
+            out.write(bufferEncriptado);
+
+            // Send signature length + signature
+            out.writeInt(sign.length);
             out.write(sign);
             out.flush();
         }
         fileInputStream.close();
+        System.out.println("File sent: " + file.getName());
     }
     private static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKeyCli)
-            throws Exception
-    {
-
-        int bytes = 0;
-        String fileNamex=in.readUTF();
-        String fileName="./imgs2/"+fileNamex;
-        FileOutputStream fileOutputStream
-                = new FileOutputStream(fileName);
+            throws Exception {
+        String fileNamex = in.readUTF();
+        String fileName = "./imgs/" + fileNamex;
+        FileOutputStream fileOutputStream = new FileOutputStream(fileName);
 
         long size = in.readLong();
-        byte[] buffer = new byte[4 * 1024];
-        while (size > 0 && (bytes = in.read(buffer, 0, (int)Math.min(buffer.length, size))) != -1) {
-            byte[] bufferDesencriptado=Criptografia.desencriptar("AES", clave, buffer);
-            byte[] sign=Criptografia.desencriptar("RSA",publicKeyCli,in.readAllBytes());
+        long totalRead = 0;
+
+        System.out.println("Receiving file: " + fileNamex + " (" + size + " bytes)");
+
+        while (totalRead < size) {
+            // Read encrypted chunk
+            int encryptedLength = in.readInt();
+            byte[] encryptedChunk = in.readNBytes(encryptedLength);
+
+            // Read signature
+            int signLength = in.readInt();
+            byte[] encryptedSign = in.readNBytes(signLength);
+
+            // Decrypt the data
+            byte[] bufferDesencriptado = Criptografia.desencriptar("AES", clave, encryptedChunk);
+
+            // Verify signature
+            byte[] sign = Criptografia.desencriptar("RSA", publicKeyCli, encryptedSign);
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] encodedhash = digest.digest(bufferDesencriptado);
-            if(Arrays.equals(sign, encodedhash)) {
-                fileOutputStream.write(bufferDesencriptado, 0, bytes);
-                size -= bytes;
+
+            if (Arrays.equals(sign, encodedhash)) {
+                fileOutputStream.write(bufferDesencriptado);
+                totalRead += bufferDesencriptado.length;
+            } else {
+                System.out.println("Signature verification failed for chunk in file: " + fileNamex);
+                break;
             }
         }
-        System.out.println("File is Received");
+
         fileOutputStream.close();
+        System.out.println("File received: " + fileNamex);
+    }
+    public static byte[] serialize(Object obj) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ObjectOutputStream os = new ObjectOutputStream(out);
+        os.writeObject(obj);
+        return out.toByteArray();
     }
 
 }

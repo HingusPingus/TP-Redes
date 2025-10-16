@@ -1,13 +1,22 @@
+import javax.crypto.SecretKey;
 import javax.swing.*;
 import java.io.File;
+import java.security.KeyPair;
+import java.security.PublicKey;
 
 public class GUIThread extends Thread{
     JFrame frame;
     File folder;
+    SecretKey clave;
+    PublicKey publicKeyServ;
+    KeyPair claves;
 
-    public GUIThread(JFrame frame, File folder) {
+    public GUIThread(JFrame frame, File folder, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
         this.frame = frame;
         this.folder = folder;
+        this.clave = clave;
+        this.publicKeyServ = publicKeyServ;
+        this.claves = claves;
     }
 
     @Override
@@ -18,16 +27,17 @@ public class GUIThread extends Thread{
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        while(frame.isEnabled()){
             int len=folder.listFiles().length;
-            //Client.decision(false);
+        while(frame.isEnabled()){
+
+            Client.decision(false,clave,publicKeyServ,claves);
             int lennow= folder.listFiles().length;
             if(len!=lennow) {
                 len=lennow;
                 frame.dispose();
                 frame.removeAll();
 
-                GUI.mostrarImgs();
+                GUI.mostrarImgs(clave,publicKeyServ,claves);
             }
             try {
                 sleep(10000);
