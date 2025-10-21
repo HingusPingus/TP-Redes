@@ -7,16 +7,12 @@ import java.security.PublicKey;
 public class GUIThread extends Thread{
     JFrame frame;
     File folder;
-    SecretKey clave;
-    PublicKey publicKeyServ;
-    KeyPair claves;
+    String ip;
 
-    public GUIThread(JFrame frame, File folder, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
+    public GUIThread(JFrame frame, File folder,String ip) {
         this.frame = frame;
         this.folder = folder;
-        this.clave = clave;
-        this.publicKeyServ = publicKeyServ;
-        this.claves = claves;
+        this.ip=ip;
     }
 
     @Override
@@ -30,14 +26,14 @@ public class GUIThread extends Thread{
             int len=folder.listFiles().length;
         while(frame.isEnabled()){
 
-            Client.decision(false,clave,publicKeyServ,claves);
+            Client.startup(false,ip);
             int lennow= folder.listFiles().length;
             if(len!=lennow) {
                 len=lennow;
                 frame.dispose();
                 frame.removeAll();
 
-                GUI.mostrarImgs(clave,publicKeyServ,claves);
+                GUI.mostrarImgs(ip);
             }
             try {
                 sleep(10000);

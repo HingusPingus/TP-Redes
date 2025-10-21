@@ -1,3 +1,11 @@
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+
 public class MensajeFirma {
     private byte [] mensajeEncriptado;
     private byte [] firma;
@@ -21,5 +29,12 @@ public class MensajeFirma {
 
     public void setFirma(byte[] firma) {
         this.firma = firma;
+    }
+    public byte[] desecriptarMsj(SecretKey clave) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
+        return Criptografia.desencriptar("AES", clave, mensajeEncriptado);
+    }
+
+    public byte[] desencriptarFirma(PublicKey publicKey) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
+        return Criptografia.desencriptar("RSA", publicKey, firma);
     }
 }

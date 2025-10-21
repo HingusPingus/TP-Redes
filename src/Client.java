@@ -8,69 +8,63 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 
 public class Client {
-    public static void main(String args[]) throws Exception
+    public static void main(String[] args) throws Exception
     {
-        decision(true,null,null,null);
-
+        startup(true,args[0]);
+        GUI.mostrarImgs(args[0]);
 
     }
-    public static void decision(boolean mandar, SecretKey clave,PublicKey publicKeyServ, KeyPair claves) {
+    public static void startup(boolean mandar, String ip) {
         try {
-            Socket sockett = new Socket("localhost", 9999);
-
-            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
-            if(clave==null){
-
-                out.writeBoolean(true);
-                out.flush();
-
-                ObjectOutputStream outobj =new ObjectOutputStream(sockett.getOutputStream());
-                ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
-                claves =Clave.generateRSAKkeyPair();
-
-                outobj.writeObject(claves.getPublic());
-
-                publicKeyServ=(PublicKey) inobj.readObject();
-                outobj.flush();
-                DataInputStream in = new DataInputStream(sockett.getInputStream());
-                int len=in.readInt();
-                byte[] decryptedMessage=Criptografia.desencriptar("RSA",claves.getPrivate(),in.readNBytes(len));
-                int lenSign=in.readInt();
-                byte[] sign=Criptografia.desencriptar("RSA",publicKeyServ,in.readNBytes(lenSign));
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                byte[] encodedhash = digest.digest(decryptedMessage);
-                if(Arrays.equals(sign, encodedhash)){
-                    clave = new javax.crypto.spec.SecretKeySpec(decryptedMessage, "AES");
-                }
-            }
-            else{
-                out.writeBoolean(false);
-            }
-
+            Socket sockett = new Socket(ip, 9999);
             DataInputStream in = new DataInputStream(sockett.getInputStream());
-            if (mandar) {
 
-                out.writeBoolean(true);
-                mandarNuevo(sockett, out, in,clave,claves);
-            } else {
-                out.writeBoolean(false);
+            KeyPair claves =Clave.generateRSAKkeyPair();
+            PublicKey publicKeyServ=intercambioClaves(sockett,claves);
+            SecretKey clave = recibirSimetrica(sockett,claves,publicKeyServ,in);
+            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
+            if(clave.equals(null)){
+                throw new RuntimeException("Ha ocurrido un error");
             }
-            actualizarLista(sockett, out, in,clave,publicKeyServ,claves);
-            if(mandar){
-                GUI.mostrarImgs(clave,publicKeyServ,claves);
-            }
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            decision(mandar,sockett,out,in,publicKeyServ,claves,clave);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+    private static void decision(boolean mandar,Socket sockett, DataOutputStream out, DataInputStream in,
+    PublicKey publicKeyServ,KeyPair claves,SecretKey clave) throws Exception {
+        if (mandar) {
+            out.writeBoolean(true);
+            mandarNuevo(sockett, out, in,clave,claves);
+        } else {
+            out.writeBoolean(false);
+        }
+        actualizarLista(sockett, out, in,clave,publicKeyServ,claves);
+    }
+    private static PublicKey intercambioClaves(Socket sockett,KeyPair claves) throws IOException, ClassNotFoundException {
+        ObjectOutputStream outobj =new ObjectOutputStream(sockett.getOutputStream());
+        ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
+        outobj.writeObject(claves.getPublic());
+        outobj.flush();
+        return(PublicKey) inobj.readObject();
+
+    }
+    private static SecretKey recibirSimetrica(Socket sockett,KeyPair claves,PublicKey publicKeyServ,DataInputStream in) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException, ClassNotFoundException {
+        ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
+
+        MensajeFirma msj= (MensajeFirma) inobj.readObject();
+        byte[] decryptedMessage=Criptografia.desencriptar("RSA",claves.getPrivate(),msj.getMensajeEncriptado());
+        byte[] encodedhash = Utilidades.hashear(decryptedMessage);
+        if(Arrays.equals(msj.desencriptarFirma(publicKeyServ), encodedhash)){
+            return new SecretKeySpec(decryptedMessage, "AES");
+        }
+        return null;
     }
     private static void mandarNuevo(Socket sockett, DataOutputStream out, DataInputStream in, SecretKey clave, KeyPair claves) throws Exception {
         File file = null;
@@ -83,140 +77,43 @@ public class Client {
         if(returnVal == JFileChooser.APPROVE_OPTION){
             file=fc.getSelectedFile();
         }
-            sendFile(file,out,clave,claves);
-
+        Utilidades.sendFile(file,out,clave,claves);
     }
     private static void actualizarLista(Socket sockett, DataOutputStream out, DataInputStream in, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
         try {
-            int len = in.readInt();
-            byte[] longitudb = Criptografia.desencriptar("AES", clave, in.readNBytes(len));
-
-            int lenSign = in.readInt();
-            byte[] sign = Criptografia.desencriptar("RSA", publicKeyServ, in.readNBytes(lenSign));
-
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedhash = digest.digest(longitudb);
-
-            if (Arrays.equals(sign, encodedhash)) {
-                int longitud = (int) deserialize(longitudb);
-                
-                File theDir = new File("./imgs2/");
-                String[] entries = theDir.list();
-                for (String s : entries) {
-                    File currentFile = new File(theDir.getPath(), s);
-                    currentFile.delete();
-                }
-                if (!theDir.exists()) {
-                    theDir.mkdirs();
-                }
+            byte[] message =Utilidades.receiveMessage(in,publicKeyServ,clave);
+            if (message!=null) {
+                int longitud = (int) Utilidades.deserialize(message);
+                prepararDirectorio();
                 for (int i = 0; i < longitud; i++) {
-                    receiveFile(in, clave, publicKeyServ);
+                    Utilidades.receiveFile(in, clave, publicKeyServ);
                 }
             }
-
-            in.close();
-            out.close();
-            sockett.close();
-
+            cerrarTodo(sockett, out, in);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-    private static void sendFile(File file, DataOutputStream out, SecretKey clave, KeyPair claves)
-            throws Exception {
 
-        sendSpecs(out,file);
-        sendBuffers(out, file, clave, claves);
+
+    public static void prepararDirectorio(){
+        File theDir = new File("./imgs2/");
+        limpiarDirectorio(theDir);
+        crearDirectorio(theDir);
     }
-    private static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKeyServ)
-            throws Exception {
-        String fileNamex = in.readUTF();
-        String fileName = "./imgs2/" + fileNamex;
-        FileOutputStream fileOutputStream = new FileOutputStream(fileName);
-
-        long size = in.readLong();
-        long totalRead = 0;
-
-        System.out.println("Receiving file: " + fileNamex + " (" + size + " bytes)");
-
-        while (totalRead < size) {
-            // Read encrypted chunk
-            int encryptedLength = in.readInt();
-            byte[] encryptedChunk = in.readNBytes(encryptedLength);
-
-            // Read signature
-            int signLength = in.readInt();
-            byte[] encryptedSign = in.readNBytes(signLength);
-
-            // Decrypt the data
-            byte[] bufferDesencriptado = Criptografia.desencriptar("AES", clave, encryptedChunk);
-
-            // Verify signature
-            byte[] sign = Criptografia.desencriptar("RSA", publicKeyServ, encryptedSign);
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedhash = digest.digest(bufferDesencriptado);
-
-            if (Arrays.equals(sign, encodedhash)) {
-                fileOutputStream.write(bufferDesencriptado);
-                totalRead += bufferDesencriptado.length;
-            } else {
-                System.out.println("Signature verification failed for chunk in file: " + fileNamex);
-                break;
+    public static void limpiarDirectorio(File theDir){
+        String[] entries = theDir.list();
+        if(entries!=null) {
+            for (String s : entries) {
+                File currentFile = new File(theDir.getPath(), s);
+                currentFile.delete();
             }
         }
-
-        fileOutputStream.close();
-        System.out.println("File received: " + fileNamex);
     }
-    public static Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
-        ByteArrayInputStream in = new ByteArrayInputStream(data);
-        ObjectInputStream is = new ObjectInputStream(in);
-        return is.readObject();
-    }
-    public static byte[] serialize(Object obj) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ObjectOutputStream os = new ObjectOutputStream(out);
-        os.writeObject(obj);
-        return out.toByteArray();
-    }
-
-    public static MensajeFirma encriptarMensaje(byte[]dataToEncrypt,SecretKey clave, KeyPair claves)
-            throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException,
-            BadPaddingException, InvalidKeyException {
-        byte[] bufferEncriptado = Criptografia.encriptar("AES", clave, dataToEncrypt);
-        byte[] sign = firmar(bufferEncriptado,claves.getPrivate());
-        return new MensajeFirma(bufferEncriptado,sign);
-    }
-
-    public static byte[] hashear(byte[] data) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return digest.digest(data);
-    }
-
-    public static byte[] firmar(byte[] data,PrivateKey clavePrivada) throws NoSuchAlgorithmException,
-            NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-        return Criptografia.encriptar("RSA", clavePrivada, hashear(data));
-    }
-    public static void sendSpecs(DataOutputStream out,File file) throws IOException {
-        out.writeUTF(file.getName());
-        out.writeLong(file.length());
-        out.flush();
-    }
-    public static void sendBuffers(DataOutputStream out,File file,SecretKey clave,KeyPair claves)
-            throws IOException, NoSuchPaddingException, IllegalBlockSizeException,
-            NoSuchAlgorithmException, BadPaddingException, InvalidKeyException {
-        byte[] buffer = new byte[16 * 1024];
-        int bytes;
-        FileInputStream fileInputStream = new FileInputStream(file);
-        ObjectOutputStream objout =new ObjectOutputStream(out);
-        System.out.println("Sending file: " + file.getName());
-        while ((bytes = fileInputStream.read(buffer)) != -1) {
-            byte[] dataToEncrypt = Arrays.copyOf(buffer, bytes);
-            MensajeFirma mensaje=encriptarMensaje(dataToEncrypt,clave,claves);
-            objout.writeObject(mensaje);
-            objout.flush();
+    public static void crearDirectorio(File theDir){
+        if (!theDir.exists()) {
+            theDir.mkdirs();
         }
-        fileInputStream.close();
-        System.out.println("File sent: " + file.getName());
     }
+
 }

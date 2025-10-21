@@ -9,19 +9,19 @@ import java.security.PublicKey;
 import java.util.ArrayList;
 
 public class GUI {
-    public static void mostrarImgs(SecretKey clave, PublicKey publicKeyServ, KeyPair claves){
+    public static void mostrarImgs(String ip){
 
         JFrame frame = new JFrame("Whiteboard");
         frame.setSize(1000,1000);
         File folder= new File("./imgs2/");
         long cantImgs=folder.length();
-        actualizarImgs(folder,frame,clave,publicKeyServ,claves);
-        GUIThread hilo=new GUIThread(frame,folder,clave,publicKeyServ,claves);
+        actualizarImgs(folder,frame,ip);
+        GUIThread hilo=new GUIThread(frame,folder,ip);
         hilo.start();
 
 
     }
-    public static void actualizarImgs(File folder, JFrame frame, SecretKey clave, PublicKey publicKeyServ, KeyPair claves){
+    public static void actualizarImgs(File folder, JFrame frame,String ip){
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         double width = screenSize.getWidth();
 
@@ -37,7 +37,7 @@ public class GUI {
         button.setBorder(BorderFactory.createEmptyBorder(offsetv,offseth,0,0));
 
         button.addActionListener(e -> {
-            Client.decision(true,clave,publicKeyServ,claves);
+            Client.startup(true,ip);
             frame.dispose();
             frame.removeAll();});
         frame.add(button);
