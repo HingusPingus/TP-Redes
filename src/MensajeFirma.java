@@ -2,11 +2,12 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import java.io.Serializable;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 
-public class MensajeFirma {
+public class MensajeFirma implements Serializable {
     private byte [] mensajeEncriptado;
     private byte [] firma;
 

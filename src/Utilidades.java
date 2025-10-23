@@ -8,8 +8,7 @@ import java.security.*;
 import java.util.Arrays;
 
 public class Utilidades {
-    public static byte[] receiveMessage(DataInputStream in, PublicKey publicKey, SecretKey clave) throws IOException, NoSuchAlgorithmException, ClassNotFoundException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-        ObjectInputStream inobj=new ObjectInputStream(in);
+    public static byte[] receiveMessage(ObjectInputStream inobj, PublicKey publicKey, SecretKey clave) throws IOException, NoSuchAlgorithmException, ClassNotFoundException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
         MensajeFirma msjrecibido= (MensajeFirma) inobj.readObject();
         byte[] bufferDesencriptado=msjrecibido.desecriptarMsj(clave);
         byte[] encodedhash = hashear(bufferDesencriptado);
@@ -18,8 +17,8 @@ public class Utilidades {
         }
         return null;
     }
-    public static long receiveBuffers(DataInputStream in, SecretKey clave, PublicKey publicKey, FileOutputStream fileOutputStream) throws NoSuchAlgorithmException, IOException, ClassNotFoundException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-        byte[] message =receiveMessage(in,publicKey,clave);
+    public static long receiveBuffers(ObjectInputStream inobj, SecretKey clave, PublicKey publicKey, FileOutputStream fileOutputStream) throws NoSuchAlgorithmException, IOException, ClassNotFoundException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+        byte[] message =receiveMessage(inobj,publicKey,clave);
         if (message!=null) {
             fileOutputStream.write(message);
             return message.length;
@@ -43,7 +42,7 @@ public class Utilidades {
             throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException,
             BadPaddingException, InvalidKeyException {
         byte[] bufferEncriptado = Criptografia.encriptar("AES", clave, dataToEncrypt);
-        byte[] sign = firmar(bufferEncriptado,claves.getPrivate());
+        byte[] sign = firmar(dataToEncrypt,claves.getPrivate());
         return new MensajeFirma(bufferEncriptado,sign);
     }
 
@@ -68,36 +67,39 @@ public class Utilidades {
         int bytes;
         FileInputStream fileInputStream = new FileInputStream(file);
         System.out.println("Sending file: " + file.getName());
+        ObjectOutputStream objout =new ObjectOutputStream(out);
         while ((bytes = fileInputStream.read(buffer)) != -1) {
-            sendBuffer(bytes,buffer,out,clave,claves);
+            sendBuffer(bytes,buffer,objout,clave,claves);
+            objout.flush();
         }
         fileInputStream.close();
         System.out.println("File sent: " + file.getName());
     }
-    public static void sendBuffer(int bytes,byte[] buffer, DataOutputStream out, SecretKey clave,KeyPair claves) throws IOException,
+    public static void sendBuffer(int bytes,byte[] buffer, ObjectOutputStream objout, SecretKey clave,KeyPair claves) throws IOException,
             NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException,
             BadPaddingException, InvalidKeyException {
-        ObjectOutputStream objout =new ObjectOutputStream(out);
+
         byte[] dataToEncrypt = Arrays.copyOf(buffer, bytes);
         MensajeFirma mensaje=encriptarMensaje(dataToEncrypt,clave,claves);
         objout.writeObject(mensaje);
-        objout.flush();
+
     }
     public static void sendFile(File file, DataOutputStream out, SecretKey clave, KeyPair claves)
             throws Exception {
         sendSpecs(out,file);
         sendBuffers(out, file, clave, claves);
     }
-    public static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKey)
+    public static void receiveFile(DataInputStream in, SecretKey clave, PublicKey publicKey,String directory)
             throws Exception {
         String fileNamex = in.readUTF();
-        String fileName = "./imgs2/" + fileNamex;
+        String fileName = directory+ fileNamex;
         FileOutputStream fileOutputStream = new FileOutputStream(fileName);
         long size = in.readLong();
         long totalRead = 0;
+        ObjectInputStream inobj=new ObjectInputStream(in);
         System.out.println("Receiving file: " + fileNamex + " (" + size + " bytes)");
         while (totalRead < size) {
-            long totalBuffer=receiveBuffers(in,clave,publicKey,fileOutputStream);
+            long totalBuffer=receiveBuffers(inobj,clave,publicKey,fileOutputStream);
             if(totalBuffer==-1){
                 System.out.println("Signature verification failed for chunk in file: " + fileNamex);
                 break;

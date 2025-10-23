@@ -8,38 +8,52 @@ public class GUIThread extends Thread{
     JFrame frame;
     File folder;
     String ip;
-
+    private volatile boolean running = true;
     public GUIThread(JFrame frame, File folder,String ip) {
         this.frame = frame;
         this.folder = folder;
         this.ip=ip;
+        this.running=true;
     }
 
     @Override
     public void run(){
-
         try {
-            sleep(1000);
+            sleep(3000);
+            int len = folder.listFiles().length;
+            while (running) {
+                if (actualizarFiles(len)) {
+                    len = folder.listFiles().length;
+                }
+                int i=0;
+                while(running&&i<10){
+                    sleep(1000);
+                    i++;
+                }
+            }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-            int len=folder.listFiles().length;
-        while(frame.isEnabled()){
-
-            Client.startup(false,ip);
-            int lennow= folder.listFiles().length;
-            if(len!=lennow) {
-                len=lennow;
-                frame.dispose();
-                frame.removeAll();
-
-                GUI.mostrarImgs(ip);
-            }
-            try {
-                sleep(10000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+    }
+    public boolean actualizarImgs(int len, int lennow) {
+        if (len != lennow) {
+            frame.dispose();
+            frame.removeAll();
+            GUI.crearFrame(ip);
+            return true;
         }
+        return false;
+    }
+    public boolean actualizarFiles(int len){
+        Client.startup(false,ip);
+        int lennow= folder.listFiles().length;
+        if(actualizarImgs(len,lennow)){
+            return true;
+        }
+        return false;
+    }
+
+    public void stopThread(){
+        running=false;
     }
 }

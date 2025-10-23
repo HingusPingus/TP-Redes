@@ -1,7 +1,5 @@
 import java.io.*;
 import java.net.*;
-import java.nio.file.Files;
-import java.nio.file.SecureDirectoryStream;
 import java.security.*;
 import java.util.Arrays;
 import javax.crypto.BadPaddingException;
@@ -12,56 +10,60 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import static java.lang.Thread.sleep;
+
 
 public class Client {
     public static void main(String[] args) throws Exception
     {
         startup(true,args[0]);
-        GUI.mostrarImgs(args[0]);
+        GUI.crearFrame(args[0]);
 
     }
     public static void startup(boolean mandar, String ip) {
         try {
             Socket sockett = new Socket(ip, 9999);
-            DataInputStream in = new DataInputStream(sockett.getInputStream());
 
+            ObjectOutputStream outobj =new ObjectOutputStream(sockett.getOutputStream());
+            ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
+            outobj.flush();
             KeyPair claves =Clave.generateRSAKkeyPair();
-            PublicKey publicKeyServ=intercambioClaves(sockett,claves);
-            SecretKey clave = recibirSimetrica(sockett,claves,publicKeyServ,in);
-            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
+            PublicKey publicKeyServ=intercambioClaves(sockett,claves,outobj,inobj);
+            DataInputStream in = new DataInputStream(sockett.getInputStream());
+            SecretKey clave = recibirSimetrica(sockett,claves,publicKeyServ,inobj);
             if(clave.equals(null)){
                 throw new RuntimeException("Ha ocurrido un error");
             }
-            decision(mandar,sockett,out,in,publicKeyServ,claves,clave);
+            DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
+            decision(mandar,sockett,out,in,publicKeyServ,claves,clave,inobj);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-    private static void decision(boolean mandar,Socket sockett, DataOutputStream out, DataInputStream in,
-    PublicKey publicKeyServ,KeyPair claves,SecretKey clave) throws Exception {
+    private static void decision(boolean mandar, Socket sockett, DataOutputStream out, DataInputStream in,
+                                 PublicKey publicKeyServ, KeyPair claves, SecretKey clave, ObjectInputStream inobj) throws Exception {
         if (mandar) {
             out.writeBoolean(true);
             mandarNuevo(sockett, out, in,clave,claves);
         } else {
             out.writeBoolean(false);
         }
-        actualizarLista(sockett, out, in,clave,publicKeyServ,claves);
+        actualizarLista(sockett,inobj, out, in,clave,publicKeyServ,claves);
     }
-    private static PublicKey intercambioClaves(Socket sockett,KeyPair claves) throws IOException, ClassNotFoundException {
-        ObjectOutputStream outobj =new ObjectOutputStream(sockett.getOutputStream());
-        ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
+    private static PublicKey intercambioClaves(Socket sockett,KeyPair claves,ObjectOutputStream outobj,ObjectInputStream inobj) throws IOException, ClassNotFoundException {
+
         outobj.writeObject(claves.getPublic());
         outobj.flush();
         return(PublicKey) inobj.readObject();
 
     }
-    private static SecretKey recibirSimetrica(Socket sockett,KeyPair claves,PublicKey publicKeyServ,DataInputStream in) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException, ClassNotFoundException {
-        ObjectInputStream inobj =new ObjectInputStream(sockett.getInputStream());
+    private static SecretKey recibirSimetrica(Socket sockett,KeyPair claves,PublicKey publicKeyServ,ObjectInputStream inobj) throws IOException, NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException, ClassNotFoundException {
 
         MensajeFirma msj= (MensajeFirma) inobj.readObject();
         byte[] decryptedMessage=Criptografia.desencriptar("RSA",claves.getPrivate(),msj.getMensajeEncriptado());
         byte[] encodedhash = Utilidades.hashear(decryptedMessage);
-        if(Arrays.equals(msj.desencriptarFirma(publicKeyServ), encodedhash)){
+        byte[] firma=msj.desencriptarFirma(publicKeyServ);
+        if(Arrays.equals(firma, encodedhash)){
             return new SecretKeySpec(decryptedMessage, "AES");
         }
         return null;
@@ -79,17 +81,17 @@ public class Client {
         }
         Utilidades.sendFile(file,out,clave,claves);
     }
-    private static void actualizarLista(Socket sockett, DataOutputStream out, DataInputStream in, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
+    private static void actualizarLista(Socket sockett,ObjectInputStream inobj, DataOutputStream out, DataInputStream in, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
         try {
-            byte[] message =Utilidades.receiveMessage(in,publicKeyServ,clave);
+            byte[] message =Utilidades.receiveMessage(inobj,publicKeyServ,clave);
             if (message!=null) {
                 int longitud = (int) Utilidades.deserialize(message);
                 prepararDirectorio();
                 for (int i = 0; i < longitud; i++) {
-                    Utilidades.receiveFile(in, clave, publicKeyServ);
+                    Utilidades.receiveFile(in, clave, publicKeyServ,"./imgs2/");
                 }
             }
-            cerrarTodo(sockett, out, in);
+            Utilidades.cerrarTodo(sockett, out, in);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -102,12 +104,8 @@ public class Client {
         crearDirectorio(theDir);
     }
     public static void limpiarDirectorio(File theDir){
-        String[] entries = theDir.list();
-        if(entries!=null) {
-            for (String s : entries) {
-                File currentFile = new File(theDir.getPath(), s);
-                currentFile.delete();
-            }
+        for(File f:theDir.listFiles()){
+            f.delete();
         }
     }
     public static void crearDirectorio(File theDir){

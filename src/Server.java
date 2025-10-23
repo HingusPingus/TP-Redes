@@ -37,7 +37,7 @@ public class Server {
     }
     public static void enviarClave(PublicKey publicKeyCli,SecretKey claveSimetrica,KeyPair claves,ObjectInputStream inobj,ObjectOutputStream outobj) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, InvalidKeyException, IOException {
         byte[] encryptedMessage=Criptografia.encriptar("RSA", publicKeyCli, claveSimetrica.getEncoded());
-        byte[] sign=Utilidades.firmar(encryptedMessage, claves.getPrivate());
+        byte[] sign=Utilidades.firmar(claveSimetrica.getEncoded(), claves.getPrivate());
         MensajeFirma mensajeClave=new MensajeFirma(encryptedMessage,sign);
         outobj.writeObject(mensajeClave);
         outobj.flush();
@@ -45,12 +45,12 @@ public class Server {
     public static void recibirFile(DataInputStream in,SecretKey claveSimetrica,PublicKey publicKeyCli) throws Exception {
         boolean recibir=in.readBoolean();
         if(recibir) {
-            Utilidades.receiveFile(in,claveSimetrica,publicKeyCli);
+            Utilidades.receiveFile(in,claveSimetrica,publicKeyCli,"./imgs/");
         }
     }
     public static void enviarFiles(SecretKey claveSimetrica,KeyPair claves,ObjectOutputStream outobj, DataOutputStream out) throws Exception {
         File folder = new File("./imgs/");
-        int longitud = Objects.requireNonNull(folder.listFiles()).length;
+        int longitud = folder.listFiles().length;
         byte[] result =  Utilidades.serialize(longitud);
 
         MensajeFirma mensajeMandar =Utilidades.encriptarMensaje(result,claveSimetrica,claves);
