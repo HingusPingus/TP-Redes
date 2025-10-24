@@ -22,6 +22,10 @@ public class Client {
     }
     public static void startup(boolean mandar, String ip) {
         try {
+            File file=null;
+            if(mandar){
+                file=seleccionarImagen();
+            }
             Socket sockett = new Socket(ip, 9999);
 
             ObjectOutputStream outobj =new ObjectOutputStream(sockett.getOutputStream());
@@ -35,16 +39,17 @@ public class Client {
                 throw new RuntimeException("Ha ocurrido un error");
             }
             DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
-            decision(mandar,sockett,out,in,publicKeyServ,claves,clave,inobj);
+            decision(mandar,sockett,out,in,publicKeyServ,claves,clave,inobj,file);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
     private static void decision(boolean mandar, Socket sockett, DataOutputStream out, DataInputStream in,
-                                 PublicKey publicKeyServ, KeyPair claves, SecretKey clave, ObjectInputStream inobj) throws Exception {
-        if (mandar) {
+                                 PublicKey publicKeyServ, KeyPair claves, SecretKey clave, ObjectInputStream inobj,
+                                 File file) throws Exception {
+        if (mandar&&file!=null) {
             out.writeBoolean(true);
-            mandarNuevo(sockett, out, in,clave,claves);
+            mandarImagen(sockett, out, in,clave,claves,file);
         } else {
             out.writeBoolean(false);
         }
@@ -68,17 +73,8 @@ public class Client {
         }
         return null;
     }
-    private static void mandarNuevo(Socket sockett, DataOutputStream out, DataInputStream in, SecretKey clave, KeyPair claves) throws Exception {
-        File file = null;
-        JFileChooser fc = new JFileChooser();
-        FileNameExtensionFilter filter = new FileNameExtensionFilter(
-                "Seleccione una imagen", "jpg", "gif","jpeg","png");
-        fc.setFileFilter(filter);
-        int returnVal = fc.showOpenDialog(null);
+    private static void mandarImagen(Socket sockett, DataOutputStream out, DataInputStream in, SecretKey clave, KeyPair claves,File file) throws Exception {
 
-        if(returnVal == JFileChooser.APPROVE_OPTION){
-            file=fc.getSelectedFile();
-        }
         Utilidades.sendFile(file,out,clave,claves);
     }
     private static void actualizarLista(Socket sockett,ObjectInputStream inobj, DataOutputStream out, DataInputStream in, SecretKey clave, PublicKey publicKeyServ, KeyPair claves) {
@@ -96,7 +92,19 @@ public class Client {
             throw new RuntimeException(e);
         }
     }
+    public static File seleccionarImagen(){
+        File file = null;
+        JFileChooser fc = new JFileChooser();
+        FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                "Seleccione una imagen", "jpg", "gif","jpeg","png");
+        fc.setFileFilter(filter);
+        int returnVal = fc.showOpenDialog(null);
 
+        if(returnVal == JFileChooser.APPROVE_OPTION){
+            return fc.getSelectedFile();
+        }
+        return null;
+    }
 
     public static void prepararDirectorio(){
         File theDir = new File("./imgs2/");
