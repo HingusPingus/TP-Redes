@@ -39,14 +39,14 @@ public class Client {
                 throw new RuntimeException("Ha ocurrido un error");
             }
             DataOutputStream out = new DataOutputStream(sockett.getOutputStream());
-            decision(mandar,sockett,out,in,publicKeyServ,claves,clave,inobj,file);
+            decisionMandar(mandar,sockett,out,in,publicKeyServ,claves,clave,inobj,file);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-    private static void decision(boolean mandar, Socket sockett, DataOutputStream out, DataInputStream in,
-                                 PublicKey publicKeyServ, KeyPair claves, SecretKey clave, ObjectInputStream inobj,
-                                 File file) throws Exception {
+    private static void decisionMandar(boolean mandar, Socket sockett, DataOutputStream out, DataInputStream in,
+                                       PublicKey publicKeyServ, KeyPair claves, SecretKey clave, ObjectInputStream inobj,
+                                       File file) throws Exception {
         if (mandar&&file!=null) {
             out.writeBoolean(true);
             mandarImagen(sockett, out, in,clave,claves,file);
@@ -108,8 +108,8 @@ public class Client {
 
     public static void prepararDirectorio(){
         File theDir = new File("./imgs2/");
-        limpiarDirectorio(theDir);
         crearDirectorio(theDir);
+        limpiarDirectorio(theDir);
     }
     public static void limpiarDirectorio(File theDir){
         for(File f:theDir.listFiles()){

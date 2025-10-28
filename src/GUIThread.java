@@ -19,17 +19,17 @@ public class GUIThread extends Thread{
     @Override
     public void run(){
         try {
-            sleep(3000);
+            int i=0;
+            while(running&&i<10){
+                sleep(1000);
+                i++;
+            }
             int len = folder.listFiles().length;
             while (running) {
                 if (actualizarFiles(len)) {
                     len = folder.listFiles().length;
                 }
-                int i=0;
-                while(running&&i<10){
-                    sleep(1000);
-                    i++;
-                }
+
             }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
