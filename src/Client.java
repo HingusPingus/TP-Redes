@@ -11,11 +11,12 @@ import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import static java.lang.Thread.sleep;
-
+import java.util.logging.Level;
 
 public class Client {
     public static void main(String[] args) throws Exception
     {
+        Utilidades.logger.setLevel(Level.parse(args[1]));
         startup(true,args[0]);
         GUI.crearFrame(args[0]);
 

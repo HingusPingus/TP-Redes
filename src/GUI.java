@@ -44,7 +44,7 @@ public class GUI {
             offseth+=200;
             i++;
             labels=hacerLugar(i,folder,labels,frame,offsetv,maxoffset);
-        }
+       }
     }
     public static JFrame actualizarFrame(JFrame frame, ArrayList<JLabel>labels, int i){
         frame.add(labels.get(i));
@@ -74,7 +74,6 @@ public class GUI {
         button.setSize(200,200);
         button.setFocusable(false);
         button.setBorder(BorderFactory.createEmptyBorder(0,0,0,0));
-
         button.addActionListener(e -> {
             hilo.stopThread();
             try {

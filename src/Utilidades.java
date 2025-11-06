@@ -6,8 +6,11 @@ import java.io.*;
 import java.net.Socket;
 import java.security.*;
 import java.util.Arrays;
+import java.util.logging.Logger;
+
 
 public class Utilidades {
+    static final Logger logger = Logger.getLogger( Utilidades.class.getName() );
     public static byte[] receiveMessage(ObjectInputStream inobj, PublicKey publicKey, SecretKey clave) throws IOException, NoSuchAlgorithmException, ClassNotFoundException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
         MensajeFirma msjrecibido= (MensajeFirma) inobj.readObject();
         byte[] bufferDesencriptado=msjrecibido.desecriptarMsj(clave);
@@ -66,14 +69,14 @@ public class Utilidades {
         byte[] buffer = new byte[16 * 1024];
         int bytes;
         FileInputStream fileInputStream = new FileInputStream(file);
-        System.out.println("Sending file: " + file.getName());
+        logger.info("Sending files");
         ObjectOutputStream objout =new ObjectOutputStream(out);
         while ((bytes = fileInputStream.read(buffer)) != -1) {
             sendBuffer(bytes,buffer,objout,clave,claves);
             objout.flush();
         }
         fileInputStream.close();
-        System.out.println("File sent: " + file.getName());
+        logger.info("File sent: " + file.getName());
     }
     public static void sendBuffer(int bytes,byte[] buffer, ObjectOutputStream objout, SecretKey clave,KeyPair claves) throws IOException,
             NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException,
@@ -97,17 +100,17 @@ public class Utilidades {
         long size = in.readLong();
         long totalRead = 0;
         ObjectInputStream inobj=new ObjectInputStream(in);
-        System.out.println("Receiving file: " + fileNamex + " (" + size + " bytes)");
+        logger.info("Receiving file: " + fileNamex + " (" + size + " bytes)");
         while (totalRead < size) {
             long totalBuffer=receiveBuffers(inobj,clave,publicKey,fileOutputStream);
             if(totalBuffer==-1){
-                System.out.println("Signature verification failed for chunk in file: " + fileNamex);
+                logger.info("Signature verification failed for chunk in file: " + fileNamex);
                 break;
             }
             totalRead+=totalBuffer;
         }
         fileOutputStream.close();
-        System.out.println("File received: " + fileNamex);
+        logger.info("File received: " + fileNamex);
     }
     public static void cerrarTodo(Socket sockett, DataOutputStream out, DataInputStream in) throws IOException {
         in.close();

@@ -6,11 +6,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.logging.Level;
 
 public class Server {
 
     public static void main(String args[]) throws Exception
     {
+        Utilidades.logger.setLevel(Level.parse(args[0]));
 
         SecretKey claveSimetrica = crearClaves();
         ServerSocket serverSocket = new ServerSocket(9999);
