@@ -16,7 +16,7 @@ import java.util.logging.Level;
 public class Client {
     public static void main(String[] args) throws Exception
     {
-        Utilidades.logger.setLevel(Level.parse(args[1]));
+        Utilidades.logger.setLevel(Level.parse(args[1].toUpperCase()));
         startup(true,args[0]);
         GUI.crearFrame(args[0]);
 

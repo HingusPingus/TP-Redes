@@ -12,7 +12,7 @@ public class Server {
 
     public static void main(String args[]) throws Exception
     {
-        Utilidades.logger.setLevel(Level.parse(args[0]));
+        Utilidades.logger.setLevel(Level.parse(args[0].toUpperCase()));
 
         SecretKey claveSimetrica = crearClaves();
         ServerSocket serverSocket = new ServerSocket(9999);
@@ -66,7 +66,7 @@ public class Server {
 
     }
     public static void conexionCliente(ServerSocket serverSocket, KeyPair claves, SecretKey claveSimetrica) throws Exception {
-        boolean aux=false;
+
         Socket clientSocket = serverSocket.accept();
         System.out.println("Client connected!");
         DataInputStream in = new DataInputStream(clientSocket.getInputStream());
@@ -79,9 +79,9 @@ public class Server {
         enviarFiles(claveSimetrica,claves,outobj,out);
         Utilidades.cerrarTodo(clientSocket, out, in);
         System.out.println("sali");
-        if(aux){
-            serverSocket.close();
-        }
+
+
+
     }
 
 }
